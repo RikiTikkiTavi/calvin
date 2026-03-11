@@ -20,7 +20,7 @@ hasher = pyhash.fnv1_32()
 logger = logging.getLogger(__name__)
 
 
-def get_default_model_and_env(train_folder, dataset_path, checkpoint, env=None, device_id=0):
+def get_default_model_and_env(train_folder, dataset_path, checkpoint, env=None, device_id: str = "cuda:0", env_device_id: str = "cuda:1"):
     train_cfg_path = Path(train_folder) / ".hydra/config.yaml"
     train_cfg_path = format_sftp_path(train_cfg_path)
     cfg = OmegaConf.load(train_cfg_path)
@@ -37,11 +37,11 @@ def get_default_model_and_env(train_folder, dataset_path, checkpoint, env=None, 
     data_module.setup()
     dataloader = data_module.val_dataloader()
     dataset = dataloader.dataset.datasets["lang"]
-    device = torch.device(f"cuda:{device_id}")
+    device = torch.device(device_id)
 
     if env is None:
         rollout_cfg = OmegaConf.load(Path(__file__).parents[2] / "conf/callbacks/rollout/default.yaml")
-        env = hydra.utils.instantiate(rollout_cfg.env_cfg, dataset, device, show_gui=False)
+        env = hydra.utils.instantiate(rollout_cfg.env_cfg, dataset, torch.device(env_device_id), show_gui=False)
 
     checkpoint = format_sftp_path(checkpoint)
     print(f"Loading model from {checkpoint}")
@@ -52,7 +52,7 @@ def get_default_model_and_env(train_folder, dataset_path, checkpoint, env=None, 
     model.freeze()
     if cfg.model.action_decoder.get("load_action_bounds", False):
         model.action_decoder._setup_action_bounds(cfg.datamodule.root_data_dir, None, None, True)
-    model = model.cuda(device)
+    model = model.to(device)
     print("Successfully loaded model.")
 
     return model, env, data_module
